@@ -12,7 +12,20 @@
           "package_name": "com.whatsappmobile"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "184951121113-p9miaefja5ubis7cuufmdmu8gab9sfp3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.whatsappmobile",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "184951121113-4hfkf9kaltvd3ojn79s4tkqa0e09cff1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAGm0iKGLVDSuh3jmyCB7g8W8TKjbKAJBA"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "184951121113-4hfkf9kaltvd3ojn79s4tkqa0e09cff1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

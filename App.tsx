@@ -1,8 +1,10 @@
-import React from 'react';
-import { SafeAreaView, StatusBar, useColorScheme } from 'react-native';
-import { Provider } from 'react-redux'; 
+import React, { useState, useEffect } from 'react';
+import { SafeAreaView, StatusBar, useColorScheme, Text, View } from 'react-native';
+import { Provider as ReduxProvider } from 'react-redux'; 
+import { PaperProvider } from 'react-native-paper';
 import { store } from './shared/rdx-store'; 
 import auth from '@react-native-firebase/auth';
+import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
@@ -10,7 +12,6 @@ import { NavigationContainer } from '@react-navigation/native';
 // স্টাইল এবং আইকন ইমপোর্ট
 // @ts-ignore
 import SearchIcon from "./assets/icons/search.svg";
-import { WView } from './shared/themed';
 import fonts from './shared/fonts';
 import useAppColor from './shared/useColor';
 
@@ -19,31 +20,60 @@ import TabComponent from './components/TabComponent';
 import SettingsComponent from './components/Settings';
 import ChatSettings from './components/ChatSettings';
 import ChatRoute from './components/chats-comps/ChatRoute';
-import PhoneLogin from './screens/auth/PhoneLogin';
+import PhoneLogin from './screens/auth/LoginScreen';
+import ProfileSetup from './screens/auth/ProfileSetup';
 
 const Stack = createNativeStackNavigator();
 
-// এই পার্টটি Provider এর ভেতরে থাকবে যাতে Redux ডাটা পায়
 function MainApp() {
   const isDarkMode = useColorScheme() === 'dark';
   const appColor = useAppColor(); 
-  const [initializing, setInitializing] = React.useState(true);
-  const [user, setUser] = React.useState<any>(null);
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [needsProfile, setNeedsProfile] = useState(false);
 
-  // ইউজার লগইন স্টেট হ্যান্ডেলার
+  // ইউজার প্রোফাইল চেক করার ফাংশন
+  const checkUserProfile = async (currentUser: any) => {
+    try {
+      const db = getFirestore();
+      const userRef = doc(db, 'Users', currentUser.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        setNeedsProfile(true);
+      } else {
+        setNeedsProfile(false);
+      }
+    } catch (error) {
+      console.log("Firestore Check Error:", error);
+    } finally {
+      setInitializing(false);
+    }
+  };
+
   function onAuthStateChanged(userState: any) {
     setUser(userState);
-    if (initializing) setInitializing(false);
+    if (userState) {
+      checkUserProfile(userState);
+    } else {
+      setInitializing(false);
+      setNeedsProfile(false);
+    }
   }
 
-  React.useEffect(() => {
-    // ফায়ারবেস লিসেনার
+  useEffect(() => {
     const subscriber = auth().onAuthStateChanged(onAuthStateChanged);
-    return subscriber; // আনমাউন্ট হলে লিসেনার বন্ধ হবে
+    return subscriber; 
   }, []);
 
-  // ফায়ারবেস চেকিং চলাকালীন সাদা স্ক্রিন এড়াতে লোডিং স্টেট
-  if (initializing) return null;
+  if (initializing) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <Text style={{ fontSize: 16, color: '#000', fontFamily: fonts.medium }}>Loading WhatsApp...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: appColor.dark_blue_10 }}>
@@ -52,17 +82,18 @@ function MainApp() {
         backgroundColor={appColor.dark_blue_10}
       />
       <NavigationContainer>
-        <Stack.Navigator>
+        <Stack.Navigator 
+          initialRouteName={!user ? "Login" : (needsProfile ? "ProfileSetup" : "Home")}
+        >
           {!user ? (
-            // যদি ইউজার লগইন না থাকে
             <Stack.Screen 
               name="Login" 
               options={{ headerShown: false }} 
               component={PhoneLogin} 
             />
           ) : (
-            // যদি ইউজার লগইন থাকে
             <>
+              {/* মেইন স্ক্রিনগুলো সবসময় রেজিস্টার্ড থাকবে যাতে REPLACE এরর না দেয় */}
               <Stack.Screen 
                 name="Home" 
                 options={{ headerShown: false }} 
@@ -70,19 +101,23 @@ function MainApp() {
               />
               
               <Stack.Screen 
+                name="ProfileSetup" 
+                options={{ headerShown: false }} 
+                component={ProfileSetup} 
+              />
+
+              <Stack.Screen 
                 name="Settings" 
                 options={{
                   headerRight: () => (
-                    <WView style={{ width: 28, height: 28 }}><SearchIcon /></WView>
+                    <View style={{ marginRight: 15 }}>
+                        <SearchIcon width={24} height={24} fill={appColor.text_color_1} />
+                    </View>
                   ),
                   headerTitleStyle: {
-                    fontFamily: fonts.medium,
-                    fontSize: 25,
-                    color: appColor.text_color_1
+                    fontFamily: fonts.medium, fontSize: 22, color: appColor.text_color_1
                   },
-                  headerStyle: {
-                    backgroundColor: appColor.dark_blue_10
-                  }
+                  headerStyle: { backgroundColor: appColor.dark_blue_10 }
                 }} 
                 component={SettingsComponent} 
               />
@@ -90,28 +125,20 @@ function MainApp() {
               <Stack.Screen 
                 name='chat-settings' 
                 options={{
-                  headerTitleStyle: {
-                    fontFamily: fonts.roman,
-                    fontSize: 28,
-                    color: appColor.text_color_1
-                  },
-                  headerTitle: "Chats",
-                  headerStyle: {
-                    backgroundColor: appColor.dark_blue_10
-                  }
-                }} 
+                    headerTitle: "Chats",
+                    headerStyle: { backgroundColor: appColor.dark_blue_10 },
+                    headerTitleStyle: { color: appColor.text_color_1, fontFamily: fonts.roman }
+                }}
                 component={ChatSettings} 
               />
-
+              
               <Stack.Screen 
-                name='chatDefault'
+                name='chatDefault' 
                 options={{
-                  headerTitle: '',
-                  headerStyle: {
-                    backgroundColor: appColor.dark_blue_10
-                  }
+                    headerTitle: '',
+                    headerStyle: { backgroundColor: appColor.dark_blue_10 }
                 }}
-                component={ChatRoute}
+                component={ChatRoute} 
               />
             </>
           )}
@@ -121,11 +148,12 @@ function MainApp() {
   );
 }
 
-// এক্সপোর্ট করা মেইন অ্যাপ যা Provider দিয়ে র‍্যাপ করা
 export default function App() {
   return (
-    <Provider store={store}>
-      <MainApp />
-    </Provider>
+    <ReduxProvider store={store}>
+      <PaperProvider>
+        <MainApp />
+      </PaperProvider>
+    </ReduxProvider>
   );
 }
